@@ -1,8 +1,24 @@
 #include <SPI.h>
 #include <RH_RF22.h>
+#include <U8glib.h>
 
 RH_RF22 rf22_driver;
 
+U8GLIB_SH1106_128X64 u8g(5, 4, 8, 6, 9);
+
+PROGMEM const char * const initFailed = "[Init]: Failed.";
+PROGMEM const char * const initSuccess = "[Init]: Success.";
+PROGMEM const char * const recvErr = "[Recv]: Error.";
+PROGMEM const char * const separ = " ";
+PROGMEM const char * const separVal = ":";
+PROGMEM const char * const preRssi = " RSSI: ";
+PROGMEM const char * const preRemote = " REMOTE:";
+PROGMEM const char * const preId = " id: ";
+PROGMEM const char * const preMyLastId = " myLastId: ";
+PROGMEM const char * const preDeltaT = " deltaT: ";
+PROGMEM const char * const preText = " text: \"";
+PROGMEM const char * const afterText = "\"";
+PROGMEM const char * const sent = ": Sent.";
 PROGMEM const char * const text = "This is client!";
 
 #define BUF_LEN RH_RF22_MAX_MESSAGE_LEN
@@ -15,12 +31,19 @@ unsigned long count = 0;
 
 void setup() 
 {
+  Serial.begin(9600);
+  Serial.setTimeout(2);
   pinMode(7, OUTPUT);
 
   if (rf22_driver.init())
   {
+    Serial.println(initSuccess);
     rf22_driver.setModemConfig(RH_RF22::GFSK_Rb2_4Fd36);
-    rf22_driver.setTxPower(RH_RF22_TXPOW_17DBM);
+    rf22_driver.setTxPower(RH_RF22_TXPOW_1DBM);
+  }
+  else
+  {
+    Serial.println(initFailed);  
   }
 }
 
@@ -33,11 +56,40 @@ struct Message
   char text[BUF_LEN - 2 * sizeof(unsigned long) - sizeof(int8_t)];
 } __attribute__ ((packed));
 
+void u8g_prepare(void)
+{
+  u8g.setFont(u8g_font_6x10);
+  u8g.setFontRefHeightExtendedText();
+  u8g.setDefaultForegroundColor();
+  u8g.setFontPosTop();
+}
+
+void u8g_print_rssi(int8_t rxRssi, int8_t txRssi)
+{
+  char str[16];
+  u8g_prepare();
+  snprintf(str, 16, "RX RSSI: %i", rxRssi);
+  u8g.drawStr(0, 0, str);
+  snprintf(str, 16, "TX RSSI: %i", txRssi);
+  u8g.drawStr(0, 8, str);
+}
+
+void u8g_print_lastId(int id)
+{
+  char str[16];
+  u8g.setFont(u8g_font_9x18);
+  u8g.setFontRefHeightExtendedText();
+  u8g.setDefaultForegroundColor();
+  u8g.setFontPosTop();
+  snprintf(str, 16, "ID: %i", id);
+  u8g.drawStr(0, 25, str);
+}
+
 void blink(bool success)
 {
   if(success)
   {
-    blinkOff = 100;
+    blinkOff = 50;
     lastInBlink = millis();
     digitalWrite(7, HIGH);
   }
@@ -64,20 +116,22 @@ void loop()
   unsigned long timeMillis = millis();
 
   memset(buf,0,BUF_LEN);
-
+    
   msg->remoteTime = timeMillis;
   msg->rssi = lastRssi;
-  msg->id = count;
   msg->yourId = msg->id;
+  msg->id = count;
   memcpy(msg->text, text, strlen(text) + 1);
   rf22_driver.send(buf, BUF_LEN);
   rf22_driver.waitPacketSent();
 
-  count++;
-  
+  Serial.print(timeMillis); Serial.print(separVal);
+  Serial.println(" Sent message.");
+
+  memset(buf,0,BUF_LEN);
+
   if (rf22_driver.waitAvailableTimeout(300))
   {
-    memset(buf,0,BUF_LEN);
     bool recvOk = rf22_driver.recv(buf, &len);
     buf[len - 1] = '\0';
 
@@ -87,7 +141,30 @@ void loop()
       unsigned long deltaT = msg->remoteTime - lastRemoteTime;
       lastRemoteTime = msg->remoteTime;
 
+      Serial.print(timeMillis); Serial.print(separVal);
+      Serial.print(preRssi); Serial.print(lastRssi, DEC);
+      Serial.print(preRemote);
+      Serial.print(preId); Serial.print(msg->id, DEC);
+      Serial.print(preDeltaT); Serial.print(deltaT, DEC);
+      Serial.print(preMyLastId); Serial.print(msg->yourId, DEC);
+      Serial.print(preRssi); Serial.print(msg->rssi, DEC);
+      Serial.print(preText); Serial.println(msg->text);
+
+      
+      u8g.firstPage();  
+      do {
+        u8g_print_rssi(lastRssi, msg->rssi);
+        u8g_print_lastId(msg->yourId);
+      } while( u8g.nextPage() );
+      
+
       blink(true);
+      
+      count++;
+    }
+    else
+    {
+      Serial.println(recvErr);
     }
   }
 
@@ -98,5 +175,6 @@ void loop()
   }
   blink(false);
 }
+
 
 

@@ -36,7 +36,7 @@ void setup()
   {
     Serial.println(initSuccess);
     rf22_driver.setModemConfig(RH_RF22::GFSK_Rb2_4Fd36);
-    rf22_driver.setTxPower(RH_RF22_TXPOW_17DBM);
+    rf22_driver.setTxPower(RH_RF22_TXPOW_1DBM);
   }
   else
   {
