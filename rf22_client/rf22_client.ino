@@ -4,7 +4,7 @@
 
 RH_RF22 rf22_driver;
 
-U8GLIB_SH1106_128X64 u8g(5, 4, 8, 6, 9);
+U8GLIB_SH1106_128X64 u8g(5, 4, 8, 9, 6);
 
 PROGMEM const char * const initFailed = "[Init]: Failed.";
 PROGMEM const char * const initSuccess = "[Init]: Success.";
@@ -39,7 +39,8 @@ void setup()
   {
     Serial.println(initSuccess);
     rf22_driver.setModemConfig(RH_RF22::GFSK_Rb2_4Fd36);
-    rf22_driver.setTxPower(RH_RF22_TXPOW_1DBM);
+    rf22_driver.setTxPower(RH_RF22_TXPOW_20DBM);
+    rf22_driver.setFrequency(868.0);
   }
   else
   {
@@ -122,11 +123,11 @@ void loop()
   msg->yourId = msg->id;
   msg->id = count;
   memcpy(msg->text, text, strlen(text) + 1);
+  Serial.print(timeMillis); Serial.print(separVal);
+  Serial.print(" Sending message. status:");
+  Serial.println(rf22_driver.statusRead());
   rf22_driver.send(buf, BUF_LEN);
   rf22_driver.waitPacketSent();
-
-  Serial.print(timeMillis); Serial.print(separVal);
-  Serial.println(" Sent message.");
 
   memset(buf,0,BUF_LEN);
 
@@ -150,22 +151,22 @@ void loop()
       Serial.print(preRssi); Serial.print(msg->rssi, DEC);
       Serial.print(preText); Serial.println(msg->text);
 
-      
-      u8g.firstPage();  
-      do {
-        u8g_print_rssi(lastRssi, msg->rssi);
-        u8g_print_lastId(msg->yourId);
-      } while( u8g.nextPage() );
-      
-
       blink(true);
       
       count++;
     }
     else
     {
+      msg->rssi;
+      u8g_print_lastId(msg->yourId);
       Serial.println(recvErr);
     }
+
+    u8g.firstPage();  
+      do {
+        u8g_print_rssi(lastRssi, msg->rssi);
+        u8g_print_lastId(msg->yourId);
+      } while( u8g.nextPage() );
   }
 
   for(int i = 0; i < 20; i++)

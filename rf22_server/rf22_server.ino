@@ -36,7 +36,8 @@ void setup()
   {
     Serial.println(initSuccess);
     rf22_driver.setModemConfig(RH_RF22::GFSK_Rb2_4Fd36);
-    rf22_driver.setTxPower(RH_RF22_TXPOW_1DBM);
+    rf22_driver.setTxPower(RH_RF22_TXPOW_20DBM);
+    rf22_driver.setFrequency(868.0);
   }
   else
   {
@@ -84,9 +85,11 @@ void loop()
   unsigned long timeMillis = millis();
 
   memset(buf,0,BUF_LEN);
-  
+
+  blink(true);
   if (rf22_driver.waitAvailableTimeout(100))
   {
+    Serial.println("RECV");
     bool recvOk = rf22_driver.recv(buf, &len);
     buf[len - 1] = '\0';
 
